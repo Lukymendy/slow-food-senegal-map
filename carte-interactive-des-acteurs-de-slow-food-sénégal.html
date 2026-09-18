@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carte Interactive - Slow Food Sénégal</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+        }
+        .header p {
+            margin: 10px 0 0;
+            font-size: 16px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        .map-container {
+            height: 600px;
+            width: 100%;
+            margin-bottom: 20px;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+        }
+        .legend {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .filter-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .filter-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .filter-btn {
+            padding: 8px 15px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .filter-btn.active {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        .filter-btn:hover {
+            background-color: #e0e0e0;
+        }
+        .info-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .entity-list {
+            list-style: none;
+            padding: 0;
+        }
+        .entity-list li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .entity-list li:hover {
+            background-color: #f8f9fa;
+        }
+        .entity-list li:last-child {
+            border-bottom: none;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+        .entity-details {
+            margin-top: 15px;
+        }
+        .entity-details h4 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        .entity-details p {
+            margin: 5px 0;
+        }
+        .contact-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .contact-info p {
+            margin: 5px 0;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            .map-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Carte Interactive de Slow Food Sénégal</h1>
+        <p>Découvrez nos communautés, jardins scolaires, familiaux et communautaires</p>
+    </div>
+    
+    <div class="container">
+        <div class="filter-section">
+            <h3>🔍 Filtrer par type</h3>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterByType('all')">Tous</button>
+                <button class="filter-btn" onclick="filterByType('communautes')">Communautés</button>
+                <button class="filter-btn" onclick="filterByType('scolaires')">Jardins Scolaires</button>
+                <button class="filter-btn" onclick="filterByType('familiaux')">Jardins Familiaux</button>
+                <button class="filter-btn" onclick="filterByType('communautaires')">Jardins Communautaires</button>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h3>📌 Légende</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF9800;"></div>
+                <span>Communautés Slow Food</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4CAF50;"></div>
+                <span>Jardins Scolaires (Actifs)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #8BC34A;"></div>
+                <span>Jardins Scolaires (En perspective)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #2196F3;"></div>
+                <span>Jardins Familiaux (Actifs)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #64B5F6;"></div>
+                <span>Jardins Familiaux (En perspective)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #9C27B0;"></div>
+                <span>Jardins Communautaires</span>
+            </div>
+        </div>
+
+        <div class="map-container" id="map"></div>
+
+        <div class="info-section">
+            <h3>📋 Liste des Entités</h3>
+            <ul class="entity-list" id="entityList">
+                <!-- La liste sera générée dynamiquement par JavaScript -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Modal pour afficher les détails -->
+    <div id="entityModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="entityDetails"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Données des entités
+        const entities = {
+            communautes: [
+                {
+                    nom: "COPROLO LOUGA",
+                    responsable: "Assane Sylla",
+                    adresse: "Louga",
+                    lat: 14.8500, // Coordonnées approximatives pour Louga
+                    lng: -16.4167,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "PRODUCTEURS DE YADJINE POUR LA BIODIVERSITÉ",
+                    responsable: "Diaba Gningue",
+                    adresse: "Tivaouane Yadjine",
+                    lat: 14.8833, // Coordonnées approximatives pour Tivaouane
+                    lng: -16.3333,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "LUMIÈRE SUR LES POTAGERS - VALORISATION DES JARDINS POTAGERS AGROÉCOLOGIQUES DAKAR",
+                    responsable: "Mouhamed Philippe Zingan",
+                    adresse: "Dakar",
+                    lat: 14.6937, // Coordonnées pour Dakar
+                    lng: -17.4441,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "SUXALI SUÑU GOX - VALORISATION DE LA BIODIVERSITÉ LOCALE",
+                    responsable: "Juliette Paule Zingan",
+                    adresse: "Dakar, Sicap Amitié",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "VALORISATION DES PRODUITS HALIEUTIQUES",
+                    responsable: "Dialika",
+                    adresse: "Fatick",
+                    lat: 14.3333, // Coordonnées approximatives pour Fatick
+                    lng: -16.4167,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "LA COMMUNAUTÉ DE CHEF LUCIE",
+                    responsable: "Lucy Ndecki",
+                    adresse: "Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "AND DÉFAR SUNU MBAYE",
+                    responsable: "Momar Gueye, Madame FALL",
+                    adresse: "Ndande",
+                    lat: 14.5, // Coordonnées approximatives
+                    lng: -16.5,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "DIAPPO AAR SUNU GUEEDJI « UNIS POUR PROTÉGER NOTRE BIODIVERSITÉ MARITIME »",
+                    responsable: "Abdoulaye Samba",
+                    adresse: "À déterminer",
+                    lat: 14.0, // Coordonnées approximatives
+                    lng: -17.0,
+                    type: "communautes",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "TRANSFORMATION DES PRODUITS LOCAUX DE KEDOUGOU",
+                    responsable: "Adja NDIAYE",
+                    adresse: "Kédougou",
+                    lat: 12.5667, // Coordonnées approximatives pour Kédougou
+                    lng: -12.1833,
+                    type: "communautes",
+                    contact: "camarraso68@hotmail.com",
+                    statut: "actif",
+                    visuel: false
+                }
+            ],
+            scolaires: [
+                {
+                    nom: "Ecole Primaire et Elémentaire Masse Massaer Niane 3",
+                    responsable: "M. Djigo",
+                    adresse: "Sicap Baobab Commune Mermoz Sacré Cœur, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire El Hadji Demba Ndoye",
+                    responsable: "M. Ndour",
+                    adresse: "Yoff Cité Biagui, Dakar",
+                    lat: 14.7500, // Coordonnées approximatives pour Yoff
+                    lng: -17.4667,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire Nafissatou Niang",
+                    responsable: "M. Abdoulaye Mbaye, Mme Fatou Bintou Dia Ndiaye",
+                    adresse: "Sicap Amitié 3 VDN, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire Point E",
+                    responsable: "M. Lambert Diedhiou",
+                    adresse: "Point E Tour de l'Oeuf, Dakar",
+                    lat: 14.7000, // Coordonnées approximatives
+                    lng: -17.4500,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "SOS Villages d'enfants",
+                    responsable: "Aziz",
+                    adresse: "Centre d'accueil d'urgence, Mermoz Sacré Cœur, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire Masse Massaer Niane 2",
+                    responsable: "Non spécifié",
+                    adresse: "Sicap Baobabs, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "Lycée Jardin potager scolaire",
+                    responsable: "Non spécifié",
+                    adresse: "Hlm Grand Yoff, Dakar",
+                    lat: 14.7500,
+                    lng: -17.4667,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "Jardin potager scolaire",
+                    responsable: "Non spécifié",
+                    adresse: "Ndande",
+                    lat: 14.5,
+                    lng: -16.5,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "Ecole Elémentaire Jardin potager scolaire",
+                    responsable: "Mme FALL",
+                    adresse: "Ndande",
+                    lat: 14.5,
+                    lng: -16.5,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire Tivaouane Niadjit",
+                    responsable: "Non spécifié",
+                    adresse: "Tivaouane",
+                    lat: 14.8833,
+                    lng: -16.3333,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                },
+                {
+                    nom: "Ecole Primaire et Elémentaire Bambilor",
+                    responsable: "Non spécifié",
+                    adresse: "Bambilor",
+                    lat: 14.5, // Coordonnées approximatives
+                    lng: -16.0,
+                    type: "scolaires",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                }
+            ],
+            familiaux: [
+                {
+                    nom: "Famille Dione",
+                    responsable: "Non spécifié",
+                    adresse: "Stele Mermoz, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Famille Dia",
+                    responsable: "Non spécifié",
+                    adresse: "Sicap Amitié 3, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                },
+                {
+                    nom: "Famille Ndiaye",
+                    responsable: "Non spécifié",
+                    adresse: "Mermoz, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Famille Gueye",
+                    responsable: "Non spécifié",
+                    adresse: "Mermoz, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Famille Mbaye",
+                    responsable: "Non spécifié",
+                    adresse: "Mbao, Dakar",
+                    lat: 14.7, // Coordonnées approximatives pour Mbao
+                    lng: -17.4,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Famille Zingan",
+                    responsable: "Non spécifié",
+                    adresse: "Amitié 3, Dakar",
+                    lat: 14.6937,
+                    lng: -17.4441,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Potager familial",
+                    responsable: "Non spécifié",
+                    adresse: "Sangalkam",
+                    lat: 14.7333, // Coordonnées approximatives pour Sangalkam
+                    lng: -17.3333,
+                    type: "familiaux",
+                    contact: "Non spécifié",
+                    statut: "en perspective",
+                    visuel: false
+                }
+            ],
+            communautaires: [
+                {
+                    nom: "Jardin communautaire Yadjin",
+                    responsable: "Non spécifié",
+                    adresse: "Tivaouane",
+                    lat: 14.8833,
+                    lng: -16.3333,
+                    type: "communautaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: false
+                },
+                {
+                    nom: "Jardin communautaire Coprolo",
+                    responsable: "Non spécifié",
+                    adresse: "Louga",
+                    lat: 14.8500,
+                    lng: -16.4167,
+                    type: "communautaires",
+                    contact: "Non spécifié",
+                    statut: "actif",
+                    visuel: true
+                }
+            ]
+        };
+
+        // Initialisation de la carte
+        const map = L.map('map').setView([14.6937, -17.4441], 7); // Centré sur Dakar
+
+        // Ajout de la couche OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Couleurs pour les marqueurs
+        const colors = {
+            communautes: '#FF9800',
+            scolaires: {
+                actif: '#4CAF50',
+                en_perspective: '#8BC34A'
+            },
+            familiaux: {
+                actif: '#2196F3',
+                en_perspective: '#64B5F6'
+            },
+            communautaires: '#9C27B0'
+        };
+
+        // Icônes pour les marqueurs
+        const icons = {
+            communautes: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            }),
+            scolaires_actif: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            }),
+            scolaires_perspective: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-lightgreen.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            }),
+            familiaux_actif: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            }),
+            familiaux_perspective: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-lightblue.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            }),
+            communautaires: L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-purple.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34]
+            })
+        };
+
+        // Ajout des marqueurs à la carte
+        function addMarkers(filterType) {
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            const entitiesToShow = [];
+            if (filterType === 'all') {
+                entitiesToShow.push(...entities.communautes, ...entities.scolaires, ...entities.familiaux, ...entities.communautaires);
+            } else if (filterType === 'communautes') {
+                entitiesToShow.push(...entities.communautes);
+            } else if (filterType === 'scolaires') {
+                entitiesToShow.push(...entities.scolaires);
+            } else if (filterType === 'familiaux') {
+                entitiesToShow.push(...entities.familiaux);
+            } else if (filterType === 'communautaires') {
+                entitiesToShow.push(...entities.communautaires);
+            }
+
+            entitiesToShow.forEach(entity => {
+                let icon;
+                if (entity.type === 'communautes') {
+                    icon = icons.communautes;
+                } else if (entity.type === 'scolaires') {
+                    icon = entity.statut === 'actif' ? icons.scolaires_actif : icons.scolaires_perspective;
+                } else if (entity.type === 'familiaux') {
+                    icon = entity.statut === 'actif' ? icons.familiaux_actif : icons.familiaux_perspective;
+                } else if (entity.type === 'communautaires') {
+                    icon = icons.communautaires;
+                }
+
+                const marker = L.marker([entity.lat, entity.lng], { icon: icon }).addTo(map);
+                marker.on('click', function() {
+                    showEntityDetails(entity);
+                });
+            });
+
+            // Mettre à jour la liste
+            updateEntityList(filterType);
+        }
+
+        // Afficher les détails d'une entité dans le modal
+        function showEntityDetails(entity) {
+            const modal = document.getElementById('entityModal');
+            const details = document.getElementById('entityDetails');
+
+            let statutText = entity.statut === 'actif' ? '✅ Actif' : '🔜 En perspective';
+            let typeText;
+            if (entity.type === 'communautes') {
+                typeText = 'Communauté Slow Food';
+            } else if (entity.type === 'scolaires') {
+                typeText = 'Jardin Potager Scolaire';
+            } else if (entity.type === 'familiaux') {
+                typeText = 'Jardin Potager Familial';
+            } else if (entity.type === 'communautaires') {
+                typeText = 'Jardin Potager Communautaire';
+            }
+
+            details.innerHTML = `
+                <h4>${entity.nom}</h4>
+                <div class="entity-details">
+                    <p><strong>Type:</strong> ${typeText}</p>
+                    <p><strong>Statut:</strong> ${statutText}</p>
+                    <p><strong>Responsable:</strong> ${entity.responsable}</p>
+                    <p><strong>Adresse:</strong> ${entity.adresse}</p>
+                    <p><strong>Visuel disponible:</strong> ${entity.visuel ? '✅ Oui' : '❌ Non'}</p>
+                </div>
+                <div class="contact-info">
+                    <h4>📞 Coordonnées</h4>
+                    <p><strong>Contact:</strong> ${entity.contact || 'Non spécifié'}</p>
+                </div>
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // Fermer le modal
+        function closeModal() {
+            document.getElementById('entityModal').style.display = 'none';
+        }
+
+        // Mettre à jour la liste des entités
+        function updateEntityList(filterType) {
+            const list = document.getElementById('entityList');
+            list.innerHTML = '';
+
+            let entitiesToShow = [];
+            if (filterType === 'all') {
+                entitiesToShow = [...entities.communautes, ...entities.scolaires, ...entities.familiaux, ...entities.communautaires];
+            } else if (filterType === 'communautes') {
+                entitiesToShow = entities.communautes;
+            } else if (filterType === 'scolaires') {
+                entitiesToShow = entities.scolaires;
+            } else if (filterType === 'familiaux') {
+                entitiesToShow = entities.familiaux;
+            } else if (filterType === 'communautaires') {
+                entitiesToShow = entities.communautaires;
+            }
+
+            entitiesToShow.forEach(entity => {
+                const li = document.createElement('li');
+                let typeText;
+                if (entity.type === 'communautes') {
+                    typeText = 'Communauté';
+                } else if (entity.type === 'scolaires') {
+                    typeText = 'Jardin Scolaire';
+                } else if (entity.type === 'familiaux') {
+                    typeText = 'Jardin Familial';
+                } else if (entity.type === 'communautaires') {
+                    typeText = 'Jardin Communautaire';
+                }
+
+                const statutText = entity.statut === 'actif' ? '✅' : '🔜';
+                li.innerHTML = `
+                    <strong>${statutText} ${entity.nom}</strong> (${typeText}) - ${entity.adresse}
+                `;
+                li.onclick = function() {
+                    showEntityDetails(entity);
+                };
+                list.appendChild(li);
+            });
+        }
+
+        // Filtrer par type
+        function filterByType(type) {
+            // Mettre à jour les boutons actifs
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            addMarkers(type);
+        }
+
+        // Initialisation
+        addMarkers('all');
+
+        // Fermer le modal en cliquant en dehors
+        window.onclick = function(event) {
+            const modal = document.getElementById('entityModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
